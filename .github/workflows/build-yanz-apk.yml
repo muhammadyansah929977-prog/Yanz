@@ -22,11 +22,36 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
       - name: Extract Android project
         run: |
           unzip -o Yanz-Android-Ready.zip -d .
           test -f Yanz-Android-Ready/app/build.gradle.kts
+
+      - name: Align Java and Kotlin targets
+        working-directory: Yanz-Android-Ready
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+          marker = "    compileSdk = 35"
+          addition = """    compileSdk = 35
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }"""
+          if "jvmTarget = \"17\"" not in s:
+              if marker not in s:
+                  raise SystemExit("compileSdk marker not found")
+              s = s.replace(marker, addition, 1)
+              p.write_text(s)
+          PY
 
       - name: Build debug APK
         working-directory: Yanz-Android-Ready
@@ -38,4 +63,3 @@ jobs:
           name: yanz-debug-apk
           path: Yanz-Android-Ready/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          
